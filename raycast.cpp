@@ -62,6 +62,16 @@ struct Ray {
         : x(o.x), y(o.y), z(o.z), dx(d.x), dy(d.y), dz(d.z) {}
 };
 
+struct Material {
+    Vec3d diffuse, specular;
+    float ka, kd, ks, shininess;
+};
+
+struct Light {
+    Vec3d position;
+    float intensity;
+    bool isDirectional;
+};
 struct Camera {
     Vec3d viewDir, upDir;
     Vec3d eye;
@@ -110,6 +120,28 @@ struct Scene {
     Color bkgcolor, temp_mtlcolor;
     std::vector<std::unique_ptr<Objects>> objects;
 };
+// Intersection struct
+struct Intersection {
+    bool hit;
+    Vec3d point, normal;
+    Material material;
+};
+
+// Shade function using Blinn-Phong
+Vec3d ShadeRay(const Intersection& inter, const Vec3d& viewDir, const std::vector<Light>& lights) {
+    Vec3d color(0, 0, 0);
+    for (const auto& light : lights) {
+        Vec3d lightDir = light.isDirectional ? light.position.norm() : (light.position - inter.point).norm();
+        Vec3d halfVec = (viewDir + lightDir).norm();
+        float diff = std::max(inter.normal.dot(lightDir), 0.0f);
+        float spec = std::pow(std::max(inter.normal.dot(halfVec), 0.0f), inter.material.shininess);
+        Vec3d diffuseColor = inter.material.diffuse * inter.material.kd * diff;
+        Vec3d specularColor = inter.material.specular * inter.material.ks * spec;
+        color = color + (diffuseColor + specularColor) * light.intensity;
+    }
+    return color;
+}
+
 bool isWhitespaceOnly(const std::string& str) {//for parse check
     return str.find_first_not_of(" \t\r\n") == std::string::npos;
 }
