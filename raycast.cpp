@@ -59,23 +59,20 @@ struct Vec3d {
 };
 
 struct Ray {
-    // Direct component access - these are now public member variables, not methods
     float x, y, z;        // origin components
     float dx, dy, dz;     // direction components
     
-    // Constructor remains the same
     Ray(const Vec3d& o, const Vec3d& d)
         : x(o.x), y(o.y), z(o.z), 
           dx(d.x), dy(d.y), dz(d.z) {}
           
-    // Optional: Add method to get vectors if needed
     Vec3d getOrigin() const { return Vec3d(x, y, z); }
     Vec3d getDirection() const { return Vec3d(dx, dy, dz); }
 };
 
 
 struct Light {
-    Vec3d position;
+    Vec3d positionOrdir; //or is direction if it's not point light
     bool isPoint;
     float intensity;
 };
@@ -162,17 +159,16 @@ struct Scene {
     MaterialColor temp_mtlcolor;
     std::vector<std::unique_ptr<Objects>> objects;
 };
-// Intersection struct
+//just attempts these 2
 struct Intersection {
     bool hit;
     Vec3d point, normal;
     MaterialColor material;
 };
-
 class Plane : public Objects {
     public:
-        Vec3d point;    // A point on the plane
-        Vec3d normal;   // Plane normal vector
+        Vec3d point;   
+        Vec3d normal;   
         MaterialColor material;
     
         Plane(const Vec3d& p, const Vec3d& n, const MaterialColor& mat) 
@@ -299,11 +295,11 @@ void parse(const std::string& filename, Scene& scene) {
                 }
             
                 // Debugging
-                std::cout << "Parsed light: Position(" << x << ", " << y << ", " << z 
-                          << ") isPoint: " << isPoint << " Intensity: " << intensity << std::endl;
+                //std::cout << "Parsed light: Position(" << x << ", " << y << ", " << z 
+                  //        << ") isPoint: " << isPoint << " Intensity: " << intensity << std::endl;
             
                 Light light;
-                light.position = Vec3d(x, y, z);
+                light.positionOrdir = Vec3d(x, y, z);
                 light.isPoint = (isPoint != 0); // Convert int to boolean
                 light.intensity = intensity;
                 scene.lights.push_back(std::make_unique<Light>(light)); 
@@ -317,12 +313,10 @@ void parse(const std::string& filename, Scene& scene) {
         } catch (const std::runtime_error& e) {
             std::cerr << "Error on line " << lineNumber << ": " << e.what() << std::endl;
             std::cerr << "Line content: " << line << std::endl;
-            // You can choose to either continue parsing or exit here
             // return; // Uncomment to exit on first error
         }
     }
 
-    // Validate that all required camera parameters were set
     if (scene.camera.w <= 0 || scene.camera.h <= 0) {
         throw std::runtime_error("Image size not set or invalid");
     }
@@ -331,7 +325,7 @@ void parse(const std::string& filename, Scene& scene) {
     }
 }
 
-    
+    // this is a way to consider a shadow plane, but not needed for now
     /*bool intersectRayPlane(const Ray& ray, const Plane& plane, float& t) {
         float denom = plane.normal.dot(ray.getDirection());
         
@@ -346,35 +340,30 @@ void parse(const std::string& filename, Scene& scene) {
     bool intersectRaySphere(const Ray& ray, const Sphere& sphere, float& t) {
         float cx = sphere.center.x, cy = sphere.center.y, cz = sphere.center.z;
         float r = sphere.radius;
-    
-        // Corrected calculations
+        //fixed a issue from 1a
         float a = ray.dx * ray.dx + ray.dy * ray.dy + ray.dz * ray.dz;
         float b = 2 * (ray.dx * (ray.x - cx) + ray.dy * (ray.y - cy) + ray.dz * (ray.z - cz));
         float c = (ray.x - cx) * (ray.x - cx) + (ray.y - cy) * (ray.y - cy) + (ray.z - cz) * (ray.z - cz) - r * r;
     
         float d = b * b - 4 * a * c;
-        if (d < 0) return false; // No real roots, no intersection
+        if (d < 0) return false; 
     
-        // Compute t values
         float t1 = (-b - sqrt(d)) / (2 * a);
         float t2 = (-b + sqrt(d)) / (2 * a);
     
-        // Fix: Ensure the correct `t` is chosen
         if (t1 > 0) {
             t = t1;
         } else if (t2 > 0) {
             t = t2;
         } else {
-            return false; // Both intersections are behind the ray
+            return false; 
         }
-    
         return true;
     }
     
 
-    bool isInShadow(const Vec3d& point, const Light& light, const Scene& scene) {
-        Vec3d lightDir = (light.position - point).norm();
-        Ray shadowRay(point + lightDir * 0.001, lightDir); // Offset to avoid self-intersection
+    bool isInShadow(const Vec3d& point, const Vec3d& L, const Scene& scene) {
+        Ray shadowRay(point + L * 0.001, L); // Offset to avoid self-intersection
     
         for (const auto& obj : scene.objects) {
             Sphere* sphere = dynamic_cast<Sphere*>(obj.get());
@@ -385,7 +374,7 @@ void parse(const std::string& filename, Scene& scene) {
                 }
             }
         }
-        return false; // No obstruction, light reaches point
+        return false; //light reaches point
     }
     
 
@@ -420,9 +409,10 @@ void parse(const std::string& filename, Scene& scene) {
             Color totalDiffuse(0, 0, 0);
             Color totalSpecular(0, 0, 0);
         
-            // Iterate over ALL lights in the scene
+            // multiple lights in one ray
             for (const auto& light : scene.lights) {
-                Vec3d L = (light->position - point).norm();
+                //TODO:distinguish light is dir/point
+                Vec3d L = light->isPoint ?   (light->positionOrdir - point).norm():light->positionOrdir.norm()*-1;
                 Vec3d H = (L + viewDir).norm();
                 float df = std::max(N.dot(L), 0.0f);
                 
@@ -430,10 +420,8 @@ void parse(const std::string& filename, Scene& scene) {
                 float sf = std::pow(std::max(N.dot(H), 0.0f), mt.shininess);
                 Color specular = mt.specular * mt.ks * sf;
         
-                // Check if the point is in shadow for this light
-                float Si = isInShadow(point, *light, scene) ? 0.0f : 1.0f;
-        
-                // Add this light's contribution
+                float Si = isInShadow(point, L, scene) ? 0.0f : 1.0f;
+    
                 totalDiffuse = totalDiffuse+ diffuse * light->intensity * Si;
                 totalSpecular = totalSpecular+specular * light->intensity * Si;
             }

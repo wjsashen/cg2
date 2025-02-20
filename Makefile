@@ -4,9 +4,9 @@ CXXFLAGS = -Wall -std=c++17
 
 # Target executable (handle Windows vs. others)
 ifeq ($(OS),Windows_NT)
-    TARGET = raytracer1a.exe
+    TARGET = raytracer1b.exe
 else
-    TARGET = raytracer1a
+    TARGET = raytracer1b
 endif
 
 # Source files
