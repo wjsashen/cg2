@@ -75,6 +75,7 @@ struct Light {
     Vec3d positionOrdir; //or is direction if it's not point light
     bool isPoint;
     float intensity;
+    float c1, c2, c3;
 };
 struct Camera {
     Vec3d viewDir, upDir;
@@ -297,8 +298,15 @@ void parse(const std::string& filename, Scene& scene) {
                 // Debugging
                 //std::cout << "Parsed light: Position(" << x << ", " << y << ", " << z 
                   //        << ") isPoint: " << isPoint << " Intensity: " << intensity << std::endl;
-            
+                
+                float c1 = 1.0f, c2 = 0.0f, c3 = 0.0f; //  no attenuation
+                if (words >> c1 >> c2 >> c3) {
+                    std::cout<<"have att params"<<std::endl;
+                }
                 Light light;
+                light.c1 = c1;
+                light.c2 =c2;
+                light.c3=c3;
                 light.positionOrdir = Vec3d(x, y, z);
                 light.isPoint = (isPoint != 0); // Convert int to boolean
                 light.intensity = intensity;
@@ -413,6 +421,10 @@ void parse(const std::string& filename, Scene& scene) {
             for (const auto& light : scene.lights) {
                 //TODO:distinguish light is dir/point
                 Vec3d L = light->isPoint ?   (light->positionOrdir - point).norm():light->positionOrdir.norm()*-1;
+                float dis = (light->positionOrdir - point).length(); // distance to light
+                //with the default set, fatt is 1 when c1 c2 c3 is not in light params 
+                float fatt = 1.0f / (light->c1 + light->c2 * dis + light->c3 * dis * dis);
+                
                 Vec3d H = (L + viewDir).norm();
                 float df = std::max(N.dot(L), 0.0f);
                 
@@ -422,8 +434,8 @@ void parse(const std::string& filename, Scene& scene) {
         
                 float Si = isInShadow(point, L, scene) ? 0.0f : 1.0f;
     
-                totalDiffuse = totalDiffuse+ diffuse * light->intensity * Si;
-                totalSpecular = totalSpecular+specular * light->intensity * Si;
+                totalDiffuse = totalDiffuse+ diffuse * light->intensity * Si*fatt;
+                totalSpecular = totalSpecular+specular * light->intensity * Si*fatt;
             }
         
             // Final color calculation
