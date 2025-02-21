@@ -10,7 +10,7 @@ else
 endif
 
 # Source files
-SRCS = raycast.cpp
+SRCS = raycast.cpp parse.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 # Build rules
@@ -19,6 +19,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
 
+# Pattern rule to compile .cpp to .o
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -30,3 +31,4 @@ ifeq ($(OS),Windows_NT)
 else
 	rm -f $(OBJS) $(TARGET)
 endif
+
