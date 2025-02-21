@@ -129,9 +129,9 @@ struct Objects {
     }
 };
 struct Sphere : public Objects {
+    Vec3d center;
     double radius;
     MaterialColor material; 
-    Vec3d center;
 
     Sphere(Vec3d c, double r, MaterialColor mat)  // Accept MaterialColor
         : center(c), radius(r), material(mat) {}
@@ -143,9 +143,8 @@ struct Sphere : public Objects {
 };
 
 struct Cylinder : public Objects {
-    Vec3d dir;
     Vec3d center;
-
+    Vec3d dir;
     double radius,length;
     MaterialColor color;
     Cylinder(Vec3d c, Vec3d d,double r,double l, Color col) : center(c), dir(d),radius(r), length(l),color(col) {}
