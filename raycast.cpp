@@ -76,7 +76,9 @@ bool isInShadow(const Vec3d& point, const Vec3d& L, const Scene& scene) {
         
             // multiple lights in one ray
             for (const auto& light : scene.lights) {
-                //TODO:distinguish light is dir/point
+                //distinguish light is dir/point
+                // L should be -1 when calculate shadow, double check here!!
+                // notes said it should be pointing toward the light source
                 Vec3d L = light->isPoint ?   (light->positionOrdir - point).norm():light->positionOrdir.norm()*-1;
                 float dis = (light->positionOrdir - point).length(); // distance to light
                 //with the default set, fatt is 1 when c1 c2 c3 is not in light params 
